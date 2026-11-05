@@ -1,11 +1,29 @@
 [package]
-name = "aks-v2"
+name = "aks2"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 authors = ["Vincent Renders <vince@render3d.tech>"]
+description = "The Lenstra variant of the AKS deterministic primality test, rewritten in Rust from the author's C++ MSc dissertation code."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/render3d/AKS2"
+readme = "README.md"
+keywords = ["aks", "primality", "prime", "number-theory", "gmp"]
+categories = ["mathematics", "algorithms"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "aks2"
+path = "src/lib.rs"
+
+[[bin]]
+name = "aks"
+path = "src/bin/aks.rs"
 
 [dependencies]
-num-bigint = "0.4.4"
-rug = "1.24.1"
+# GMP integers only: floats (MPFR) and complex (MPC) are not needed and slow the build.
+rug = { version = "1.30", default-features = false, features = ["integer", "std"] }
+
+[profile.release]
+debug = 1          # symbols for profiling (samply / Instruments)
+lto = "thin"
+codegen-units = 1
