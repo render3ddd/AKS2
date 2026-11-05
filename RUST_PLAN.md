@@ -209,13 +209,15 @@ Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) 
 - [x] Scaling: `tools/scaling.sh`. In the 2-vCPU container it gives 1.7× on 2 threads (`docs/M4-parallel.md`). **M3 Pro figures to be added**: performance against efficiency cores can be read off the curve.
 - The opt-in 10⁵ sweep (`slow_sweep_to_100000`) passes: every n ≤ 10⁵ agrees with GMP, in 14 minutes on 2 threads.
 
-### M5 — Performance work (open-ended, about 1 week)
+### M5 — Performance work (first round done; open-ended)
 
-- `Karatsuba` and `Ntt` multipliers.
-- **Coefficient reduction first** (the measured hotspot, §2): lazy reduction after folding, then Barrett or Montgomery reduction.
-- Specialised squaring (already in M2's `square()`; tune it here).
-- Reusing scratch buffers instead of allocating each `Integer` per coefficient.
-- Goal: Zn[x] path within 2–3× of the corrected C++ NTL build (`make` in the AKS repo) on the same inputs; Kronecker at least matching the corrected C++ Z version (§2 baselines) and within about 1.5× of NTL.
+Measured, not guessed: callgrind showed byte-level import/export and per-coefficient allocation at over 60% of the run, and the GMP squaring at 9% (`docs/M5-performance.md`).
+
+- [x] **Coefficient handling first.** Bit-packed limb slots; folding on limbs, then one reduction per coefficient (word arithmetic for n < 2⁶⁴); `square_into` and an in-place multiply by x − a, so the power loop allocates nothing per coefficient. The M2 version stays as `KroneckerBytes`.
+- [x] Specialised squaring (GMP's square path), unchanged from M2.
+- [x] **Goal met and exceeded:** with 2 threads, 0.30 s for 23456789, 1.17 s for 1000000007 and 38 s for the 16-digit prime. That is 2.6–4.5× faster than the corrected C++ NTL build and 2.4–6.6× faster than the C++ Z version on the same machine.
+- [ ] `Karatsuba` / `Ntt` back-ends: not needed for CPU speed, because GMP already chooses Toom/FFT inside the one big multiply. NTT remains the plan for the GPU (M7).
+- [ ] Further ideas, in `docs/M5-performance.md`: Montgomery/Barrett for n ≥ 2⁶⁴, a `Vec<u64>` coefficient representation for small n, and packing straight from limbs.
 
 ### M6 — Experiments and write-up (2–3 days)
 
