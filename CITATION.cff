@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "aks2: the Lenstra variant of the AKS primality test in Rust"
+type: software
+authors:
+  - family-names: Renders
+    given-names: Vincent
+    email: vince@render3d.tech
+repository-code: "https://github.com/render3d/AKS2"
+license:
+  - MIT
+  - Apache-2.0
+version: 0.1.0
+keywords:
+  - AKS
+  - primality testing
+  - number theory
+  - binary segmentation
+references:
+  - type: software
+    title: "AKS: C++ implementation of the Lenstra variant of the AKS primality test"
+    authors:
+      - family-names: Renders
+        given-names: Vincent
+    repository-code: "https://github.com/render3d/AKS"
+    version: "1.1"
+preferred-citation:
+  type: thesis
+  thesis-type: "MSc dissertation"
+  title: "Implementing alternative polynomial multiplication algorithms and the AKS primality test in parallel"
+  authors:
+    - family-names: Renders
+      given-names: Vincent J.
+  institution:
+    name: "University of Bath"
+  year: 2021
+  month: 9
+  department: "Department of Computer Science"
