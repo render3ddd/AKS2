@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! aks [--theorem | --phi | --lambda] [n]        # n from standard input if omitted
-//!     [--mul kronecker|schoolbook] [--log FILE] [--quiet]
+//!     [--mul kronecker|schoolbook] [-j N] [--log FILE] [--quiet]
 //! ```
 //!
 //! Exit status 0 for prime, 1 for composite (and for n < 2), 2 for bad usage,
@@ -39,6 +39,11 @@ struct Cli {
     /// Polynomial multiplier for the squarings.
     #[arg(long = "mul", default_value = "kronecker")]
     multiplier: Multiplier,
+
+    /// Threads for the congruence tests (default: one per core, or
+    /// RAYON_NUM_THREADS). 1 runs serially.
+    #[arg(short = 'j', long, value_name = "N", value_parser = clap::value_parser!(u16).range(1..))]
+    threads: Option<u16>,
 
     /// Append a CSV row (the C++ log format) to this file.
     #[arg(long, value_name = "FILE")]
@@ -103,7 +108,7 @@ fn append_log(path: &Path, t: &Trace) -> io::Result<()> {
         f,
         "{}, {}, {}, {}, {}",
         t.n,
-        1, // serial; M4 adds threads
+        t.threads,
         if t.prime { "T" } else { "F" },
         t.elapsed.as_millis(),
         note(t)
@@ -129,6 +134,7 @@ fn main() -> ExitCode {
     let options = Options {
         range,
         multiplier: cli.multiplier,
+        threads: cli.threads.map(usize::from),
     };
 
     let t = match aks(&n, options) {
@@ -145,7 +151,11 @@ fn main() -> ExitCode {
             println!("ord_r(n) = {}", p.order);
             println!("Phi({0}) = {1}, Lambda({0}) = {2}", p.r, p.phi, p.lambda);
             println!("Testing 1 <= a <= {} ({})", t.a_max.unwrap(), range);
-            println!("Multiplier: {}", options.multiplier.name());
+            println!(
+                "Multiplier: {}, threads: {}",
+                options.multiplier.name(),
+                t.threads
+            );
         }
         match &t.reason {
             Reason::PerfectPower { base, exp } => {
