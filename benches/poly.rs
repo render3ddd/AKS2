@@ -1,4 +1,4 @@
-//! Kronecker against Schoolbook by r, for n of the sizes in RUST_PLAN.md §2.
+//! Kronecker (M5), the M2 byte-slot Kronecker and Schoolbook by r, for n of the sizes in RUST_PLAN.md §2.
 //!
 //!     cargo bench --bench poly
 //!
@@ -7,7 +7,7 @@
 
 use std::hint::black_box;
 
-use aks2::poly::{Kronecker, PolyMul, Ring, Schoolbook};
+use aks2::poly::{Kronecker, KroneckerBytes, PolyMul, Ring, Schoolbook};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rug::Integer;
 use rug::rand::RandState;
@@ -31,6 +31,9 @@ fn squaring(c: &mut Criterion) {
             let a = random_poly(&ring, &mut rng);
             group.bench_with_input(BenchmarkId::new("kronecker", r), &a, |bch, a| {
                 bch.iter(|| Kronecker.square(&ring, black_box(a)))
+            });
+            group.bench_with_input(BenchmarkId::new("kronecker-bytes", r), &a, |bch, a| {
+                bch.iter(|| KroneckerBytes.square(&ring, black_box(a)))
             });
             if r <= 1024 {
                 group.bench_with_input(BenchmarkId::new("schoolbook", r), &a, |bch, a| {
