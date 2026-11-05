@@ -5,6 +5,7 @@
 //! milestones; modules are added as each milestone lands.
 //!
 //! - [`num`]: ⌊log₂ n⌋, perfect powers, multiplicative order, φ and λ (M1).
+//! - [`poly`]: the ring ℤₙ[x]/(xʳ − 1) and its multipliers (M2).
 //! - [`aks`]: choosing r and the range of *a* (M1); the test itself (M3).
 
 #![forbid(unsafe_code)]
@@ -12,6 +13,7 @@
 
 pub mod aks;
 pub mod num;
+pub mod poly;
 
 /// Crate version, as set in `Cargo.toml`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
