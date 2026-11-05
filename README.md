@@ -10,7 +10,7 @@ The corrected C++ (tag [`v1.1`](https://github.com/render3d/AKS/releases/tag/v1.
 |---|---|---|
 | M0 | Crate setup, licence, CI, C++ reference data | done |
 | M1 | Number theory: log₂, perfect powers, multiplicative order, φ, λ, choice of r | done |
-| M2 | Polynomial ring Zₙ[x]/(xʳ − 1), schoolbook and Kronecker (binary segmentation) multiplication | — |
+| M2 | Polynomial ring Zₙ[x]/(xʳ − 1), schoolbook and Kronecker (binary segmentation) multiplication | done |
 | M3 | Serial Lenstra AKS and the `aks` command | — |
 | M4 | Parallel congruence tests (rayon) | — |
 | M5 | Performance | — |

@@ -182,11 +182,12 @@ Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) 
   - `find_r`: 10007 → 173, 23456789 → 599, 1000000007 → 857, and the 42-digit prime 689960931088884849033689023336009222695077 → 19051.
   - Every one of the 10,028 rows of `tests/data/cpp_reference.csv` agrees: perfect powers, divisor found, "n ≤ r", and for the 1,249 congruence rows r, φ(r), λ(r) and the theorem bound (so the `f64` bound matches the C++ bit for bit on these inputs).
 
-### M2 — Cyclic polynomial ring and multipliers (2–4 days)
+### M2 — Cyclic polynomial ring and multipliers (done)
 
-- `CyclicPoly`, `Schoolbook`, `Kronecker` (mul and square), and `pow` by square-and-multiply with folding.
-- Property tests: for random n (up to 512 bits), r (up to 20,000) and polynomials, `Kronecker == Schoolbook`. Include the edge cases that caught the C++ bugs: the zero polynomial, constants (U = V = 1), all-ones polynomials (coefficients just above half the slot), and coefficients of n − 1.
-- Benchmark: Kronecker squaring by degree. Expect near-linear growth, not the 4× per doubling of the 2021 code.
+- [x] `Ring` / `CyclicPoly` (`src/poly/mod.rs`), with construction that folds and reduces, add/sub, lazy fold-then-reduce, and left-to-right `pow`. The `PolyMul` trait has a default `square`.
+- [x] `Schoolbook` and `Kronecker` (mul plus a dedicated square; unsigned byte-aligned slots, 2ᵇ > min(U,V)·(n−1)²).
+- [x] Property tests (`tests/poly_props.rs`): `Kronecker == Schoolbook` for n up to 512 bits, including 2ᵏ ± 1, with the edge cases (zero, constants, all-ones, all-(n−1), sparse), plus the ring laws and `pow`. The debug suite uses r ≤ 64. A release-mode `#[ignore]` test goes to r ≤ 4096: Schoolbook at r = 20,000 would take minutes per case, so the planned r up to 20,000 is covered by the AKS runs in M3 instead.
+- [x] Benchmark (`benches/poly.rs`, results in `docs/M2-poly.md`): Kronecker squaring about doubles per doubling of r (8.8 ms at r = 19,051 for a 10-digit n), against 4× for Schoolbook.
 
 ### M3 — Serial Lenstra AKS, both variants (2–3 days)
 
