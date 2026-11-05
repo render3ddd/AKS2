@@ -23,6 +23,7 @@ path = "src/bin/aks.rs"
 # GMP integers only: floats (MPFR) and complex (MPC) are not needed and slow the build.
 rug = { version = "1.30", default-features = false, features = ["integer", "std"] }
 clap = { version = "4.6", features = ["derive"] }
+rayon = "1.12"
 
 [dev-dependencies]
 proptest = "1.12"
