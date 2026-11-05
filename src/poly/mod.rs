@@ -207,6 +207,41 @@ impl Ring {
         CyclicPoly { coeffs }
     }
 
+    /// p · (x − a), in O(r): a rotation by one place minus a·p. AKS raises
+    /// x − a to the n-th power, so every multiply step in [`Ring::pow_x_minus_a`]
+    /// is this instead of a full polynomial product.
+    pub fn mul_x_minus_a(&self, p: &CyclicPoly, a: u64) -> CyclicPoly {
+        self.check(p);
+        let r = self.r;
+        let coeffs = (0..r)
+            .map(|i| {
+                // coefficient i of x·p is p[i - 1 mod r]
+                let mut c = Integer::from(&p.coeffs[(i + r - 1) % r] - &p.coeffs[i] * a);
+                c.modulo_mut(&self.n);
+                c
+            })
+            .collect();
+        CyclicPoly { coeffs }
+    }
+
+    /// (x − a)ᵉ, by left-to-right square-and-multiply with the cheap
+    /// [`Ring::mul_x_minus_a`] for the multiply steps.
+    pub fn pow_x_minus_a<M: PolyMul + ?Sized>(&self, m: &M, a: u64, e: &Integer) -> CyclicPoly {
+        assert!(!e.is_negative(), "negative exponent");
+        if e.is_zero() {
+            return self.one();
+        }
+        let base = self.from_coeffs([-Integer::from(a), Integer::from(1)]);
+        let mut acc = base;
+        for i in (0..e.significant_bits() - 1).rev() {
+            acc = m.square(self, &acc);
+            if e.get_bit(i) {
+                acc = self.mul_x_minus_a(&acc, a);
+            }
+        }
+        acc
+    }
+
     /// baseᵉ by left-to-right square-and-multiply, for e ≥ 0.
     pub fn pow<M: PolyMul + ?Sized>(&self, m: &M, base: &CyclicPoly, e: &Integer) -> CyclicPoly {
         assert!(!e.is_negative(), "negative exponent");
@@ -281,6 +316,29 @@ mod tests {
         // (x - 2)^3 = x^3 - 6x^2 + 12x - 8
         let want = z.from_coeffs([-8, 12, -6, 1]);
         assert_eq!(z.pow(&Schoolbook, &x_minus_2, &Integer::from(3)), want);
+    }
+
+    #[test]
+    fn mul_x_minus_a_matches_general_product() {
+        for r in 1..6 {
+            let z = ring(97, r);
+            let p = z.from_coeffs([5, 96, 0, 13, 1, 77]);
+            for a in [0u64, 1, 2, 96, 97, 1000] {
+                let base = z.from_coeffs([-Integer::from(a), Integer::from(1)]);
+                assert_eq!(
+                    z.mul_x_minus_a(&p, a),
+                    Schoolbook.mul(&z, &p, &base),
+                    "r={r} a={a}"
+                );
+                for e in [0u32, 1, 2, 7, 100] {
+                    let e = Integer::from(e);
+                    assert_eq!(
+                        z.pow_x_minus_a(&Kronecker, a, &e),
+                        z.pow(&Schoolbook, &base, &e)
+                    );
+                }
+            }
+        }
     }
 
     #[test]
