@@ -171,13 +171,16 @@ Each milestone ends with green `cargo test` / `clippy` and a short `docs/` note.
 
 Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) · ln n / ln 2)`. That is exact unless the product falls within rounding error of an integer. The Rust version uses the same `f64` formula, with log₂ n taken from the top 64 bits of n so it works beyond `f64` range, and the reference data checks for parity. If a mismatch ever turns up, it will be investigated, not hidden; a higher-precision bound is an option for M5.
 
-### M1 — Number theory layer (1–2 days)
+### M1 — Number theory layer (done)
 
-- `log2_floor`, `is_perfect_power`, `mult_order`, `factor_u64`, `euler_phi`, `carmichael_lambda`.
-- Tests:
-  - φ and λ for r ≤ 10⁵ against a reference table (generated once with SymPy and committed).
-  - `find_r` gives the expected r for 10007 → 173, 23456789 → 599, and the 42-digit prime 689960931088884849033689023336009222695077 → 19051. These are the values the original C++ got wrong and the corrected C++ now produces.
-  - r, φ(r), λ(r) and the bound on *a* agree with `tests/data/cpp_reference.csv` for every n in it.
+- [x] `src/num.rs`: `log2_floor`, `log2_f64`, `gcd`/`lcm`/`mul_mod`/`pow_mod`, `factor_u64`, `totients` (φ and λ from one factorisation), `mult_order` (works down from λ(r)), `order_exceeds`, `perfect_power` (exact, with the witness) and `is_perfect_power`.
+- [x] `src/aks/params.rs`: `ARange` (with the C++ wording and `is_certified`), `Params { r, order, phi, lambda }`, `find_r` → `RSearch::{Found, Divisor, NoRBelowN}`, and `a_bound`.
+- [x] `find_r` only computes an order when r > ⌊log₂ n⌋² + 1 and λ(r) > ⌊log₂ n⌋², since ord_r(n) ≤ λ(r) < r. Same answer as the C++, far fewer multiplications: the 42-digit prime's r = 19051 takes milliseconds.
+- [x] Tests:
+  - Unit tests against brute force: φ and λ for r ≤ 1000, orders for r ≤ 300, perfect powers for n < 20,000, plus bases beyond 2⁶⁴.
+  - φ and λ for r ≤ 20,000 against SymPy (`tests/data/totients.csv`, from `tools/totients.py`). The plan said 10⁵; 20,000 already covers every r used for n up to 42 digits and keeps the file to 300 KB.
+  - `find_r`: 10007 → 173, 23456789 → 599, 1000000007 → 857, and the 42-digit prime 689960931088884849033689023336009222695077 → 19051.
+  - Every one of the 10,028 rows of `tests/data/cpp_reference.csv` agrees: perfect powers, divisor found, "n ≤ r", and for the 1,249 congruence rows r, φ(r), λ(r) and the theorem bound (so the `f64` bound matches the C++ bit for bit on these inputs).
 
 ### M2 — Cyclic polynomial ring and multipliers (2–4 days)
 
