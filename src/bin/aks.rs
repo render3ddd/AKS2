@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! aks [--theorem | --phi | --lambda] [n]        # n from standard input if omitted
-//!     [--mul kronecker|schoolbook] [-j N] [--log FILE] [--quiet]
+//!     [--mul kronecker|kronecker-bytes|schoolbook] [-j N] [--log FILE] [--quiet]
 //! ```
 //!
 //! Exit status 0 for prime, 1 for composite (and for n < 2), 2 for bad usage,

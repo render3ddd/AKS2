@@ -1,7 +1,7 @@
 //! M2: every multiplier agrees with Schoolbook (RUST_PLAN.md §7 rule 7), on
 //! random inputs and on the edge cases that broke the 2021 C++.
 
-use aks2::poly::{CyclicPoly, Kronecker, PolyMul, Ring, Schoolbook};
+use aks2::poly::{CyclicPoly, Kronecker, KroneckerBytes, PolyMul, Ring, Schoolbook};
 use proptest::prelude::*;
 use rug::Integer;
 use rug::integer::Order;
@@ -76,6 +76,27 @@ proptest! {
     }
 
     #[test]
+    fn kronecker_bytes_matches_schoolbook((ring, a, b) in ring_and_two(8, 64)) {
+        prop_assert_eq!(KroneckerBytes.mul(&ring, &a, &b), Schoolbook.mul(&ring, &a, &b));
+        prop_assert_eq!(KroneckerBytes.square(&ring, &a), Schoolbook.mul(&ring, &a, &a));
+    }
+
+    #[test]
+    fn square_into_reuses_any_buffer((ring, a, b) in ring_and_two(8, 64)) {
+        // The output buffer's old contents (here: b) must not leak into a².
+        let mut out = b;
+        Kronecker.square_into(&ring, &a, &mut out);
+        prop_assert_eq!(out, Schoolbook.mul(&ring, &a, &a));
+    }
+
+    #[test]
+    fn pow_x_minus_a_matches_pow((ring, _a, _b) in ring_and_two(4, 32), a in any::<u64>(), e in 0u64..5000) {
+        let base = ring.from_coeffs([-Integer::from(a), Integer::from(1)]);
+        let e = Integer::from(e);
+        prop_assert_eq!(ring.pow_x_minus_a(&Kronecker, a, &e), ring.pow(&Schoolbook, &base, &e));
+    }
+
+    #[test]
     fn ring_laws((ring, a, b) in ring_and_two(4, 32)) {
         let m = Kronecker;
         prop_assert_eq!(m.mul(&ring, &a, &b), m.mul(&ring, &b, &a));
@@ -106,6 +127,10 @@ fn kronecker_matches_schoolbook_large_r() {
         .run(&ring_and_two(8, 4_096), |(ring, a, b)| {
             prop_assert_eq!(Kronecker.mul(&ring, &a, &b), Schoolbook.mul(&ring, &a, &b));
             prop_assert_eq!(Kronecker.square(&ring, &a), Schoolbook.mul(&ring, &a, &a));
+            prop_assert_eq!(
+                KroneckerBytes.square(&ring, &a),
+                Schoolbook.mul(&ring, &a, &a)
+            );
             Ok(())
         })
         .unwrap();
