@@ -14,7 +14,7 @@ use rug::Integer;
 use super::congruence::Congruence;
 use super::params::{ARange, Params, RSearch, a_bound, find_r};
 use crate::num::perfect_power;
-use crate::poly::{Kronecker, PolyMul, Schoolbook};
+use crate::poly::{Kronecker, KroneckerBytes, PolyMul, Schoolbook};
 
 /// Which [`PolyMul`] back-end runs the squarings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -22,18 +22,25 @@ pub enum Multiplier {
     /// Kronecker substitution (binary segmentation): the default.
     #[default]
     Kronecker,
+    /// The simpler M2 Kronecker with byte-aligned slots: for comparison.
+    KroneckerBytes,
     /// O(r²) schoolbook multiplication: for testing.
     Schoolbook,
 }
 
 impl Multiplier {
     /// Every back-end, for tests and benchmarks.
-    pub const ALL: [Multiplier; 2] = [Multiplier::Kronecker, Multiplier::Schoolbook];
+    pub const ALL: [Multiplier; 3] = [
+        Multiplier::Kronecker,
+        Multiplier::KroneckerBytes,
+        Multiplier::Schoolbook,
+    ];
 
     /// The back-end itself.
     pub fn get(self) -> &'static dyn PolyMul {
         match self {
             Multiplier::Kronecker => &Kronecker,
+            Multiplier::KroneckerBytes => &KroneckerBytes,
             Multiplier::Schoolbook => &Schoolbook,
         }
     }
@@ -50,7 +57,11 @@ impl std::str::FromStr for Multiplier {
         Multiplier::ALL
             .into_iter()
             .find(|m| m.name() == s)
-            .ok_or_else(|| format!("unknown multiplier {s:?} (expected kronecker or schoolbook)"))
+            .ok_or_else(|| {
+                format!(
+                    "unknown multiplier {s:?} (expected kronecker, kronecker-bytes or schoolbook)"
+                )
+            })
     }
 }
 
