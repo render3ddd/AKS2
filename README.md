@@ -12,7 +12,7 @@ The corrected C++ (tag [`v1.1`](https://github.com/render3d/AKS/releases/tag/v1.
 | M1 | Number theory: log₂, perfect powers, multiplicative order, φ, λ, choice of r | done |
 | M2 | Polynomial ring Zₙ[x]/(xʳ − 1), schoolbook and Kronecker (binary segmentation) multiplication | done |
 | M3 | Serial Lenstra AKS and the `aks` command | done |
-| M4 | Parallel congruence tests (rayon) | — |
+| M4 | Parallel congruence tests (rayon) | done |
 | M5 | Performance | — |
 
 ## Building
@@ -31,6 +31,7 @@ cargo run --release -- 23456789               # r, parameters, verdict, time
 echo 1000000007 | cargo run --release -- -q   # n from stdin; verdict only
 cargo run --release -- --lambda 10007         # dissertation's λ(r) − 1 bound (not certified)
 cargo run --release -- --mul schoolbook --log logs/run.csv 10007
+cargo run --release -- -j 4 1000000007         # 4 threads (default: one per core)
 ```
 
 The exit status is 0 for prime and 1 otherwise, as with the C++ programs.
