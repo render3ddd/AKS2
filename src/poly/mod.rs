@@ -6,17 +6,21 @@
 //!
 //! - [`Ring`] holds n and r and does everything except multiplication.
 //! - [`PolyMul`] is the multiplier interface, with back-ends [`Schoolbook`]
-//!   (the oracle for tests) and [`Kronecker`] (binary segmentation: the
-//!   dissertation's "Z version").
+//!   (the oracle for tests), [`Kronecker`] (binary segmentation: the
+//!   dissertation's "Z version", tuned in M5) and [`KroneckerBytes`] (the
+//!   simpler M2 version with byte slots, kept for comparison).
 
 use std::fmt;
 
-use rug::Integer;
+use rug::ops::SubFrom;
+use rug::{Assign, Integer};
 
 mod kronecker;
+mod kronecker_bytes;
 mod schoolbook;
 
 pub use kronecker::Kronecker;
+pub use kronecker_bytes::KroneckerBytes;
 pub use schoolbook::Schoolbook;
 
 /// An element of ℤₙ[x]/(xʳ − 1): exactly r coefficients, each in [0, n).
@@ -211,17 +215,35 @@ impl Ring {
     /// x − a to the n-th power, so every multiply step in [`Ring::pow_x_minus_a`]
     /// is this instead of a full polynomial product.
     pub fn mul_x_minus_a(&self, p: &CyclicPoly, a: u64) -> CyclicPoly {
+        let mut q = p.clone();
+        self.mul_x_minus_a_assign(&mut q, a);
+        q
+    }
+
+    /// p ← p · (x − a), in place: coefficient i becomes p[i − 1 mod r] − a·p[i].
+    pub fn mul_x_minus_a_assign(&self, p: &mut CyclicPoly, a: u64) {
         self.check(p);
         let r = self.r;
-        let coeffs = (0..r)
-            .map(|i| {
-                // coefficient i of x·p is p[i - 1 mod r]
-                let mut c = Integer::from(&p.coeffs[(i + r - 1) % r] - &p.coeffs[i] * a);
-                c.modulo_mut(&self.n);
-                c
-            })
-            .collect();
-        CyclicPoly { coeffs }
+        if let Some(m) = self.n.to_u64() {
+            // Word arithmetic for n < 2^64: new[i] = p[i-1] + (n - a mod n)·p[i] mod n.
+            let old: Vec<u64> = p.coeffs.iter().map(Integer::to_u64_wrapping).collect();
+            let neg_a = u128::from((m - a % m) % m);
+            let m = u128::from(m);
+            for (i, c) in p.coeffs.iter_mut().enumerate() {
+                let prev = u128::from(old[(i + r - 1) % r]);
+                c.assign(((prev + neg_a * u128::from(old[i])) % m) as u64);
+            }
+            return;
+        }
+        let last = p.coeffs[r - 1].clone(); // p[r - 1] feeds coefficient 0
+        // Downwards, so p[i - 1] is still the old value when coefficient i is made.
+        for i in (0..r).rev() {
+            let (low, high) = p.coeffs.split_at_mut(i);
+            let c = &mut high[0];
+            *c *= a;
+            c.sub_from(if i == 0 { &last } else { &low[i - 1] }); // c = prev − a·c
+            c.modulo_mut(&self.n);
+        }
     }
 
     /// (x − a)ᵉ, by left-to-right square-and-multiply with the cheap
@@ -231,12 +253,13 @@ impl Ring {
         if e.is_zero() {
             return self.one();
         }
-        let base = self.from_coeffs([-Integer::from(a), Integer::from(1)]);
-        let mut acc = base;
+        let mut acc = self.from_coeffs([-Integer::from(a), Integer::from(1)]);
+        let mut tmp = self.zero();
         for i in (0..e.significant_bits() - 1).rev() {
-            acc = m.square(self, &acc);
+            m.square_into(self, &acc, &mut tmp);
+            std::mem::swap(&mut acc, &mut tmp);
             if e.get_bit(i) {
-                acc = self.mul_x_minus_a(&acc, a);
+                self.mul_x_minus_a_assign(&mut acc, a);
             }
         }
         acc
@@ -271,6 +294,12 @@ pub trait PolyMul: Sync {
     /// a² in the ring. Back-ends override this when squaring is cheaper.
     fn square(&self, ring: &Ring, a: &CyclicPoly) -> CyclicPoly {
         self.mul(ring, a, a)
+    }
+
+    /// a², written into `out` (whose previous contents are discarded).
+    /// Back-ends override this to reuse `out`'s allocations.
+    fn square_into(&self, ring: &Ring, a: &CyclicPoly, out: &mut CyclicPoly) {
+        *out = self.square(ring, a);
     }
 
     /// Short name for logs and the command line.
@@ -320,10 +349,16 @@ mod tests {
 
     #[test]
     fn mul_x_minus_a_matches_general_product() {
-        for r in 1..6 {
-            let z = ring(97, r);
-            let p = z.from_coeffs([5, 96, 0, 13, 1, 77]);
-            for a in [0u64, 1, 2, 96, 97, 1000] {
+        // 97 takes the word-sized path; 2^64 + 13 and 2^100 + 277 the big one.
+        let moduli = [
+            Integer::from(97),
+            (Integer::from(1) << 64) + 13u32,
+            (Integer::from(1) << 100) + 277u32,
+        ];
+        for (n, r) in moduli.iter().flat_map(|n| (1..6).map(move |r| (n, r))) {
+            let z = Ring::new(n.clone(), r);
+            let p = z.from_coeffs([5, 96, 0, 13, 1, 77, -1]);
+            for a in [0u64, 1, 2, 96, 97, 1000, u64::MAX] {
                 let base = z.from_coeffs([-Integer::from(a), Integer::from(1)]);
                 assert_eq!(
                     z.mul_x_minus_a(&p, a),
