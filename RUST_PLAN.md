@@ -202,11 +202,12 @@ Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) 
   - Long-running tests follow one convention: `#[ignore]` means the release CI job runs it, and a `slow_` prefix means opt-in only.
 - Serial speed: 23456789 takes 2.1 s and 1000000007 takes 6.5 s on one thread, against 1.4 s and 3.5 s for the C++ NTL build on two threads.
 
-### M4 — Parallel congruence testing (1–2 days)
+### M4 — Parallel congruence testing (done)
 
-- `rayon` `find_first`, with a thread-count flag.
-- Scaling benchmark on the M3 Pro, measuring performance and efficiency cores separately (`RAYON_NUM_THREADS`).
-- Determinism test: the parallel and serial runs report the same failing *a*.
+- [x] `rayon` `find_first` over 1 ≤ a ≤ bound (`Congruence::first_failure_par`), with `-j/--threads` (`Options::threads`); the default is rayon's global pool. The CSV "Cores" column records the threads used.
+- [x] Determinism test: on small r where many *a* fail, the parallel search reports the same smallest failing *a* as the serial one, run after run. The multiplier comparison test pins `threads: Some(1)`.
+- [x] Scaling: `tools/scaling.sh`. In the 2-vCPU container it gives 1.7× on 2 threads (`docs/M4-parallel.md`). **M3 Pro figures to be added**: performance against efficiency cores can be read off the curve.
+- The opt-in 10⁵ sweep (`slow_sweep_to_100000`) passes: every n ≤ 10⁵ agrees with GMP, in 14 minutes on 2 threads.
 
 ### M5 — Performance work (open-ended, about 1 week)
 
