@@ -27,3 +27,12 @@ rug = { version = "1.30", default-features = false, features = ["integer", "std"
 debug = 1          # symbols for profiling (samply / Instruments)
 lto = "thin"
 codegen-units = 1
+
+[dev-dependencies]
+proptest = "1.12"
+rug = { version = "1.30", default-features = false, features = ["integer", "rand", "std"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "poly"
+harness = false
