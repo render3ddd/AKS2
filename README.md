@@ -13,7 +13,7 @@ The corrected C++ (tag [`v1.1`](https://github.com/render3d/AKS/releases/tag/v1.
 | M2 | Polynomial ring Zₙ[x]/(xʳ − 1), schoolbook and Kronecker (binary segmentation) multiplication | done |
 | M3 | Serial Lenstra AKS and the `aks` command | done |
 | M4 | Parallel congruence tests (rayon) | done |
-| M5 | Performance | — |
+| M5 | Performance (first round: 3–4× faster; beats the corrected C++) | done |
 
 ## Building
 
