@@ -189,15 +189,18 @@ Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) 
 - [x] Property tests (`tests/poly_props.rs`): `Kronecker == Schoolbook` for n up to 512 bits, including 2ᵏ ± 1, with the edge cases (zero, constants, all-ones, all-(n−1), sparse), plus the ring laws and `pow`. The debug suite uses r ≤ 64. A release-mode `#[ignore]` test goes to r ≤ 4096: Schoolbook at r = 20,000 would take minutes per case, so the planned r up to 20,000 is covered by the AKS runs in M3 instead.
 - [x] Benchmark (`benches/poly.rs`, results in `docs/M2-poly.md`): Kronecker squaring about doubles per doubling of r (8.8 ms at r = 19,051 for a 10-digit n), against 4× for Schoolbook.
 
-### M3 — Serial Lenstra AKS, both variants (2–3 days)
+### M3 — Serial Lenstra AKS, both variants (done)
 
-- `ARange::{Theorem, PhiMinusOne, LambdaMinusOne}`, defaulting to `Theorem` = ⌊√φ(r)·log₂ n⌋, capped below n.
-- `Verdict` plus `Trace` (n, r, ord_r(n), a_max, the failing *a* / divisor / perfect-power witness, timings).
-- Tests:
-  - Exhaustive n ≤ 10⁵ (a release-mode CI job extends this to 10⁶) against `is_probably_prime(30)`, which is deterministic in this range.
-  - Verdicts and parameters agree with `tests/data/cpp_reference.csv`.
-  - Composite suites: semiprimes, Carmichael numbers, and prime powers including bases > 2⁶⁴.
-  - The Appendix B primes up to about 16 digits in CI; larger ones as opt-in `#[ignore]` tests.
+- [x] `ARange::{Theorem, PhiMinusOne, LambdaMinusOne}`, defaulting to `Theorem` = ⌊√φ(r)·log₂ n⌋, capped below n (from M1).
+- [x] `aks()` returns a `Trace`: the verdict, `Reason` (small / perfect power with witness / divisor / no r below n / congruences hold / failing *a*), `Params`, a_max, the elapsed time, and `certified()`. n < 2 gives `NotApplicable`. The "Z" and "Zn[x]" versions are now the same driver with a different `Multiplier`.
+- [x] (x − a)ⁿ uses an O(r) multiply by x − a for every multiply step; only the squarings go through `PolyMul`.
+- [x] The `aks` binary: the C++ flags, n from stdin, the same exit codes, `--mul`, `--quiet`, and `--log` in the C++ CSV format. Uncertified PRIME verdicts say "(not certified)".
+- [x] Tests (`tests/aks_reference.rs`, `tests/aks_oracle.rs`; see `docs/M3-aks.md`):
+  - All 10,028 C++ reference rows agree on verdict, reason, witness and parameters, including every Appendix B prime up to 10 digits.
+  - Sweep against `is_probably_prime(30)`: n ≤ 3000 in debug, 20,000 in the release CI job, and 10⁵ opt-in. The plan's 10⁶ in CI would take hours even with M4, so it is not run.
+  - Composite suites: semiprimes above r, a Chernick Carmichael number above r (both must fail a congruence, with the same *a* for every multiplier), and prime powers with bases above 2⁶⁴.
+  - Long-running tests follow one convention: `#[ignore]` means the release CI job runs it, and a `slow_` prefix means opt-in only.
+- Serial speed: 23456789 takes 2.1 s and 1000000007 takes 6.5 s on one thread, against 1.4 s and 3.5 s for the C++ NTL build on two threads.
 
 ### M4 — Parallel congruence testing (1–2 days)
 
