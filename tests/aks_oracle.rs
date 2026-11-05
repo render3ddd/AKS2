@@ -61,6 +61,7 @@ fn semiprimes_fail_a_congruence() {
                     aks(
                         &n,
                         Options {
+                            threads: Some(1),
                             multiplier,
                             ..Options::default()
                         },

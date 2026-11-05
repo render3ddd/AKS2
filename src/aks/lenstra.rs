@@ -61,6 +61,10 @@ pub struct Options {
     pub range: ARange,
     /// Polynomial multiplier.
     pub multiplier: Multiplier,
+    /// Worker threads for the congruence tests: `None` uses rayon's global
+    /// pool (one thread per core, or `RAYON_NUM_THREADS`); `Some(1)` runs
+    /// serially on the calling thread.
+    pub threads: Option<usize>,
 }
 
 /// Why the test stopped where it did.
@@ -100,6 +104,8 @@ pub struct Trace {
     pub params: Option<Params>,
     /// The upper bound on *a*, when the run got that far.
     pub a_max: Option<u64>,
+    /// Threads the congruence tests ran on (1 if the run stopped before them).
+    pub threads: usize,
     /// Wall-clock time for the whole test.
     pub elapsed: Duration,
 }
@@ -129,35 +135,67 @@ pub fn aks(n: &Integer, options: Options) -> Result<Trace, NotApplicable> {
         return Err(NotApplicable(n.clone()));
     }
     let start = Instant::now();
-    let done = |prime, reason, params, a_max| Trace {
+    let done = |prime, reason, params, a_max, threads| Trace {
         n: n.clone(),
         prime,
         reason,
         options,
         params,
         a_max,
+        threads,
         elapsed: start.elapsed(),
     };
 
     if *n <= 3 {
-        return Ok(done(true, Reason::Small, None, None));
+        return Ok(done(true, Reason::Small, None, None, 1));
     }
     if let Some((base, exp)) = perfect_power(n) {
-        return Ok(done(false, Reason::PerfectPower { base, exp }, None, None));
+        return Ok(done(
+            false,
+            Reason::PerfectPower { base, exp },
+            None,
+            None,
+            1,
+        ));
     }
     let params = match find_r(n) {
-        RSearch::Divisor(d) => return Ok(done(false, Reason::Divisor(d), None, None)),
-        RSearch::NoRBelowN => return Ok(done(true, Reason::NoRBelowN, None, None)),
+        RSearch::Divisor(d) => return Ok(done(false, Reason::Divisor(d), None, None, 1)),
+        RSearch::NoRBelowN => return Ok(done(true, Reason::NoRBelowN, None, None, 1)),
         RSearch::Found(p) => p,
     };
     let a_max = a_bound(options.range, n, &params);
     let congruence = Congruence::new(n, params.r);
-    Ok(
-        match congruence.first_failure(options.multiplier.get(), a_max) {
-            None => done(true, Reason::CongruencesHold, Some(params), Some(a_max)),
-            Some(a) => done(false, Reason::CongruenceFails(a), Some(params), Some(a_max)),
-        },
-    )
+    let m = options.multiplier.get();
+    let (failure, threads) = match options.threads {
+        Some(1) => (congruence.first_failure(m, a_max), 1),
+        Some(t) => {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(t)
+                .build()
+                .expect("building the thread pool");
+            (pool.install(|| congruence.first_failure_par(m, a_max)), t)
+        }
+        None => (
+            congruence.first_failure_par(m, a_max),
+            rayon::current_num_threads(),
+        ),
+    };
+    Ok(match failure {
+        None => done(
+            true,
+            Reason::CongruencesHold,
+            Some(params),
+            Some(a_max),
+            threads,
+        ),
+        Some(a) => done(
+            false,
+            Reason::CongruenceFails(a),
+            Some(params),
+            Some(a_max),
+            threads,
+        ),
+    })
 }
 
 /// Convenience: the verdict alone, with default options. Panics for n < 2.
@@ -191,6 +229,28 @@ mod tests {
         assert_eq!(t.a_max, Some(174));
         assert!(t.prime && t.certified());
         assert!(aks(&Integer::from(1), Options::default()).is_err());
+    }
+
+    #[test]
+    fn thread_counts_agree() {
+        // A semiprime whose factors exceed r, so a congruence must fail.
+        let n = Integer::from(1009u64 * 1013);
+        let runs: Vec<Trace> = [Some(1), Some(2), Some(5), None]
+            .into_iter()
+            .map(|threads| {
+                aks(
+                    &n,
+                    Options {
+                        threads,
+                        ..Options::default()
+                    },
+                )
+                .unwrap()
+            })
+            .collect();
+        assert!(matches!(runs[0].reason, Reason::CongruenceFails(_)));
+        assert!(runs.iter().all(|t| t.reason == runs[0].reason));
+        assert_eq!(runs[2].threads, 5);
     }
 
     #[test]
