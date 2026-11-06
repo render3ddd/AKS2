@@ -48,7 +48,9 @@ Squaring alone is 1.4–2.3× faster. The whole test gains more (3–4×) becaus
 
 ## Against the plan's goals
 
-- *"Kronecker at least matching the corrected C++ Z version, and within about 1.5× of NTL."* Exceeded: 2.4–6.6× faster than the C++ Z version and 2.6–4.5× faster than the C++ NTL build on the same machine and thread count.
+- *"Kronecker at least matching the corrected C++ Z version, and within about 1.5× of NTL."* Exceeded:
+  - In the container: 2.4–6.6× faster than the C++ Z version and 2.6–4.5× faster than the C++ NTL build, on the same machine and thread count.
+  - On the M3 Pro with 11 threads, for 1000000007: 0.17 s, against 0.53 s for NTL and 3.11 s for the Z version (`docs/M4-parallel.md`).
 - *Karatsuba and NTT multipliers.* Not needed for speed on the CPU: Kronecker hands one large multiplication to GMP, which already switches between Toom–Cook and FFT by size. An NTT is still the natural GPU kernel (M7).
 
 ## Further ideas (not done)
