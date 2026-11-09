@@ -36,15 +36,15 @@ Out of scope for v1: AKS variants beyond Lenstra (2002), MIRACL/FLINT parity, an
 
 - Both programs share one command line: `LenstraZnx.out | LenstraZ.out [--theorem | --phi | --lambda] [n]`; *n* from standard input if omitted; exit status 0 for prime, 1 otherwise. Each run appends r, φ(r), λ(r), the range of *a* and the time to a CSV in `logs/`.
 - `make test`: 2,322 binary segmentation checks against NTL, plus an AKS sweep of n = 2…1000 against NTL's `ProbPrime`.
-- Measured baselines (Linux x86-64, 2 threads, `tools/cpp_baselines.sh`, best of runs; **M3 Pro figures to be added**):
+- Measured baselines (`tools/cpp_baselines.sh`, best of three; the C++ uses every hardware thread):
 
-  | n | r | Zn[x] (NTL) | Z (packed binary segmentation) |
-  |---|---|---|---|
-  | 23456789 | 599 | ≈ 1.4–1.9 s | ≈ 2.0–2.5 s |
-  | 1000000007 | 857 | ≈ 3.5–4.8 s | ≈ 5.9–7 s |
-  | 1003026954441971 (16 digits) | 2441 | ≈ 100 s | — |
+  | n | r | Zn[x] (NTL), M3 Pro, 11 threads | Z (binary segmentation), M3 Pro, 11 threads | Zn[x], Linux container, 2 threads | Z, Linux container, 2 threads |
+  |---|---|---:|---:|---:|---:|
+  | 23456789 | 599 | **0.23 s** | **1.03 s** | ≈ 1.4–1.9 s | ≈ 2.0–2.5 s |
+  | 1000000007 | 857 | **0.53 s** | **3.11 s** | ≈ 3.5–4.8 s | ≈ 5.9–7 s |
+  | 1003026954441971 (16 digits) | 2441 | not run (`LONG=1`) | — | ≈ 100 s | — |
 
-  M3 Pro: run `tools/cpp_baselines.sh ../AKS` (add `LONG=1` for the 16-digit row) and paste the table here.
+  The M3 Pro has 11 hardware threads: 5 performance cores and 6 efficiency cores. The C++ cannot be limited to fewer threads, so like-for-like comparisons with Rust use `aks -j 11` (§6, M4).
 
 - Profile of the Z version: big-integer squaring ≈ 25% of run time, general multiplies ≈ 10%, and **reducing the unpacked coefficients mod n ≈ 29%**, the largest single cost.
 
@@ -167,7 +167,7 @@ Each milestone ends with green `cargo test` / `clippy` and a short `docs/` note.
 - [x] GitHub Actions: `macos-latest` (arm64) and `ubuntu-latest`, fmt, clippy, tests, MSRV.
 - [x] Licence: MIT OR Apache-2.0, plus `CITATION.cff` (§9).
 - [x] **Reference data from the corrected C++** (tag `v1.1`): `tools/cpp_reference.py` runs `LenstraZnx.out --theorem` for every n in 2…10⁴ and the 30 Appendix B primes up to 10 digits, and parses its output into `tests/data/cpp_reference.csv` (columns n, prime, reason, witness, r, phi, lambda, a_max). 10,028 rows, 1,258 primes; every verdict agrees with trial division (`tests/reference_data.rs`). Parsing standard output rather than the CSV log keeps the witness (divisor or failing *a*) and the exact bound printed. Of the rows, 8,646 end at a gcd divisor, 124 are perfect powers, 7 end at "n ≤ r", and 1,249 run the congruence tests.
-- [ ] **Re-measure the C++ baselines** (§2) on the M3 Pro: `tools/cpp_baselines.sh ../AKS`. The C++ always uses every hardware thread (`Cores.h`), so the script records the thread count alongside the times. *(Needs the Mac; left for the author.)*
+- [x] **Re-measure the C++ baselines** (§2) on the M3 Pro with `tools/cpp_baselines.sh ../AKS`: 0.23 s and 0.53 s for NTL, 1.03 s and 3.11 s for the Z version, all on 11 threads.
 
 Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) · ln n / ln 2)`. That is exact unless the product falls within rounding error of an integer. The Rust version uses the same `f64` formula, with log₂ n taken from the top 64 bits of n so it works beyond `f64` range, and the reference data checks for parity. If a mismatch ever turns up, it will be investigated, not hidden; a higher-precision bound is an option for M5.
 
@@ -206,7 +206,10 @@ Note for M1: the C++ computes the theorem bound in `double`, as `floor(sqrt(φ) 
 
 - [x] `rayon` `find_first` over 1 ≤ a ≤ bound (`Congruence::first_failure_par`), with `-j/--threads` (`Options::threads`); the default is rayon's global pool. The CSV "Cores" column records the threads used.
 - [x] Determinism test: on small r where many *a* fail, the parallel search reports the same smallest failing *a* as the serial one, run after run. The multiplier comparison test pins `threads: Some(1)`.
-- [x] Scaling: `tools/scaling.sh`. In the 2-vCPU container it gives 1.7× on 2 threads (`docs/M4-parallel.md`). **M3 Pro figures to be added**: performance against efficiency cores can be read off the curve.
+- [x] Scaling: `tools/scaling.sh` (`docs/M4-parallel.md`).
+  - On the M3 Pro, 1000000007 scales at 92–93% efficiency up to 4 threads, all on performance cores. Efficiency falls to 72% at 8 threads and 59% at 11, once the efficiency cores join in: 1.11 s on 1 thread, 0.17 s on 11 (6.4×).
+  - With all 11 threads, Rust is **3.1× faster than the C++ NTL build** (0.17 s against 0.53 s) and **18× faster than the C++ Z version** (3.11 s). It already matches NTL's 11-thread time on 2 threads (0.60 s).
+  - In the 2-vCPU container it gives 1.7× on 2 threads.
 - The opt-in 10⁵ sweep (`slow_sweep_to_100000`) passes: every n ≤ 10⁵ agrees with GMP, in 14 minutes on 2 threads.
 
 ### M5 — Performance work (first round done; open-ended)
